@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Waitline — Find a Slot</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
+<header class="site-header">
+  <h1>Waitline</h1>
+  <nav aria-label="Primary">
+    <a href="index.html" aria-current="page">Find a Slot</a>
+    <a href="my-bookings.html">My Bookings</a>
+  </nav>
+</header>
+
+<main id="main-content">
+  <h2>Available appointment slots</h2>
+  <p id="status" class="muted">Loading available slots…</p>
+  <ul class="slot-list" id="slotList"></ul>
+</main>
+
+<script>
+async function loadSlots() {
+  const status = document.getElementById('status');
+  const list = document.getElementById('slotList');
+
+  try {
+    const res = await fetch('/api/slots');
+    if (!res.ok) throw new Error('Request failed');
+    const slots = await res.json();
+
+    if (slots.length === 0) {
+      status.textContent = 'No upcoming slots right now.';
+      return;
+    }
+    status.textContent = '';
+
+    slots.forEach((slot) => {
+      const seatsLeft = Number(slot.seats_left);
+      const full = seatsLeft <= 0;
+      const when = new Date(slot.starts_at).toLocaleString();
+
+      const li = document.createElement('li');
+      li.className = 'card';
+      li.innerHTML = `
+        <div class="meta">
+          <p class="clinic">${slot.clinic_name} — ${slot.doctor_name}</p>
+          <p>${when}</p>
+          <p class="seats">${full ? 'Fully booked' : seatsLeft + ' seat' + (seatsLeft === 1 ? '' : 's') + ' left'}</p>
+        </div>
+        ${
+          full
+            ? `<span class="btn" aria-disabled="true">Fully booked</span>`
+            : `<a class="btn" href="book.html?slotId=${slot.id}">
+                 Book this slot
+                 <span class="visually-hidden"> with ${slot.doctor_name} at ${when}</span>
+               </a>`
+        }
+      `;
+      list.appendChild(li);
+    });
+  } catch (err) {
+    status.textContent = 'Could not load slots. Is the server running?';
+    status.setAttribute('role', 'alert');
+  }
+}
+
+loadSlots();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Waitline — My Bookings</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
+<header class="site-header">
+  <h1>Waitline</h1>
+  <nav aria-label="Primary">
+    <a href="index.html">Find a Slot</a>
+    <a href="my-bookings.html" aria-current="page">My Bookings</a>
+  </nav>
+</header>
+
+<main id="main-content">
+  <h2>My bookings</h2>
+
+  <form id="searchForm" class="search-form">
+    <div class="form-field">
+      <label for="searchEmail">Find bookings by email</label>
+      <input id="searchEmail" type="email" required>
+    </div>
+    <button type="submit" class="btn">Search</button>
+  </form>
+
+  <p id="status" role="status"></p>
+  <ul class="booking-list" id="bookingList"></ul>
+</main>
+
+<script>
+const form = document.getElementById('searchForm');
+const status = document.getElementById('status');
+const list = document.getElementById('bookingList');
+
+function renderBookings(bookings) {
+  list.innerHTML = '';
+  if (bookings.length === 0) {
+    status.textContent = 'No bookings found for that email.';
+    return;
+  }
+  status.textContent = '';
+
+  bookings.forEach((b) => {
+    const li = document.createElement('li');
+    li.className = 'card';
+    li.innerHTML = `
+      <div class="meta">
+        <p class="clinic">${b.clinic_name} with ${b.doctor_name}</p>
+        <p>${new Date(b.starts_at).toLocaleString()}</p>
+        <p class="seats">Status: <strong>${b.status}</strong></p>
+      </div>
+      ${
+        b.status === 'confirmed'
+          ? `<button class="btn btn-outline" data-id="${b.id}">Cancel booking</button>`
+          : ''
+      }
+    `;
+    list.appendChild(li);
+  });
+
+  list.querySelectorAll('button[data-id]').forEach((btn) => {
+    btn.addEventListener('click', () => cancelBooking(btn.dataset.id, btn));
+  });
+}
+
+async function cancelBooking(id, btn) {
+  btn.disabled = true;
+  btn.textContent = 'Cancelling…';
+  try {
+    const res = await fetch(`/api/bookings/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('failed');
+    const card = btn.closest('li');
+    card.querySelector('.seats').innerHTML = 'Status: <strong>cancelled</strong>';
+    btn.remove();
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = 'Cancel booking';
+    status.textContent = 'Could not cancel that booking. Please try again.';
+    status.setAttribute('role', 'alert');
+  }
+}
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('searchEmail').value.trim();
+  status.removeAttribute('role');
+  status.textContent = 'Searching…';
+  try {
+    const res = await fetch(`/api/bookings?email=${encodeURIComponent(email)}`);
+    if (!res.ok) throw new Error('failed');
+    renderBookings(await res.json());
+  } catch (err) {
+    status.textContent = 'Could not load bookings. Please try again.';
+    status.setAttribute('role', 'alert');
+  }
+});
+</script>
+
+</body>
+</html>
